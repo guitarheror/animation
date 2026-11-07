@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Animação 2d versão 1.0</title>
+<title>Quadro a Quadro – Estúdio de animação 2D</title>
 <style>
 :root{--bg:#f2f1ee;--pn:#e4e2dd;--pn2:#d7d4cd;--ln:#bdb9b0;--tx:#22211f;--mu:#6c675e;--ac:#0b6e8f;--ac2:#fff;--cv:#8a8780;--ok:#d9480f;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -257,7 +257,7 @@ function fit(){const s=$('#stage');if(!frames.length)return;const z=Math.min((s.
 addEventListener('resize',()=>fit());
 function setZoom(){view.style.width=W*$('#zoom').value/100+'px';view.style.height=H*$('#zoom').value/100+'px'}
 $('#zoom').oninput=setZoom;
-function thumb(i){const cell=$('#frames').children[i];if(!cell)return;const t=cell.querySelector('canvas'),x=t.getContext('2d'),f=frames[i];x.fillStyle='#fff';x.fillRect(0,0,t.width,t.height);if(f.bg&&$('#showVid').checked){x.globalAlpha=.6;x.drawImage(f.bg,0,0,t.width,t.height);x.globalAlpha=1}x.drawImage(f.c,0,0,t.width,t.height)}
+function thumb(i){const cell=$('#frames').children[i];if(!cell)return;const t=cell.querySelector('canvas'),x=t.getContext('2d'),f=frames[i];x.fillStyle='#fff';x.fillRect(0,0,t.width,t.height);if(f.bg&&$('#showVid').checked){x.globalAlpha=1;x.drawImage(f.bg,0,0,t.width,t.height);x.globalAlpha=1}x.drawImage(f.c,0,0,t.width,t.height)}
 function build(){sel.clear();const box=$('#frames');box.innerHTML='';frames.forEach((f,i)=>{const d=document.createElement('div');d.className='cell';d.innerHTML='<b>'+(i+1)+'</b>';const t=mk(160,Math.round(160*H/W));d.append(t);d.onclick=e=>{if(e.ctrlKey||e.metaKey){sel.has(i)?sel.delete(i):sel.add(i);mark()}else if(e.shiftKey){for(let k=Math.min(cur,i);k<=Math.max(cur,i);k++)sel.add(k);mark()}else{sel.clear();go(i)}};box.append(d)});frames.forEach((_,i)=>thumb(i));mark()}
 function mark(){[...$('#frames').children].forEach((c,i)=>{c.classList.toggle('act',i===cur);c.classList.toggle('sel',sel.has(i))});$('#bPasteSel').textContent='Colar em selecionados ('+sel.size+')';$('#bPasteSel').disabled=!sel.size;const a=$('#frames').children[cur];if(a){const f=$('#frames'),l=a.offsetLeft-f.offsetLeft;if(l<f.scrollLeft)f.scrollLeft=l-8;else if(l+a.offsetWidth>f.scrollLeft+f.clientWidth)f.scrollLeft=l+a.offsetWidth-f.clientWidth+8};$('#info').textContent=frames.length?`Frame ${cur+1} / ${frames.length}`:'Sem frames'}
 function go(i){if(!frames.length)return;commitFloat();cur=Math.max(0,Math.min(frames.length-1,i));mark();render()}
@@ -1023,8 +1023,333 @@ const ax=(x0+x1)/2,ay=(y0+y1)/2;adj={id,s,ax,ay,w:Math.max(8,x1-x0),h:Math.max(8
 applyG=function(){const g=adj;if(!g)return;const co=Math.cos(g.rot),si=Math.sin(g.rot);g.set.forEach(c=>{const b=c.b;if(!b)return;const dx=b.cx-g.ax,dy=b.cy-g.ay;c.cx=g.ax+g.dx+(dx*co-dy*si)*g.k;c.cy=g.ay+g.dy+(dx*si+dy*co)*g.k;c.s=b.s*g.k;c.r=b.r+g.rot})};
 adjDone=function(){const g=adj;if(!g)return;if(g.dx||g.dy||g.k!==1||g.rot){const S=simOf(g);g.set.forEach(c=>{c.xf=cmp(S,c.xf)});tracks.forEach(t=>{let x=null;t.clips.forEach(c=>{if(g.set.has(c))x=c.xf});if(x)t.xf=x})}
 g.s.a=cloneT();adj=null;ad=null;document.body.classList.remove('adj-on');refreshAll();render();tlvObj()};
+/* ================= PONTE PARA ADD-ONS (usada por menu-projetos.js) ================= */
+const sceneOf=(frs,trs)=>{const m=new Map(frs.map((f,i)=>[f,i]));return{frames:frs.map(f=>({c:f.c,bg:f.bg||null})),tracks:trs.map(t=>({...t,clips:t.clips.filter(c=>m.has(c.fr)).map(c=>({...c,fr:m.get(c.fr)}))})).filter(t=>t.clips.length)}};
+const SA=window.StudioAPI={version:1,_cbs:[],_silent:false,
+onDirty(f){this._cbs.push(f)},
+markDirty(){if(!this._silent)this._cbs.forEach(f=>{try{f()}catch(e){}})},
+hasProject(){return(bm?bm.st.fr:frames).length>0},
+inBlock(){return!!bm},
+hasContent(){const F=bm?bm.st.fr:frames,T=bm?bm.st.tr:tracks;return T.length>0||F.some(f=>!blank(f.c))},
+getScene(){if(bm||!frames.length)return null;return{W,H,fps:+$('#fps').value||12,counters:{cnt,gn},...sceneOf(frames,tracks)}},
+thumb(){if(bm||!frames.length)return null;try{const w=256,h=Math.max(1,Math.round(w*H/W)),c=mk(w,h),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.save();x.scale(w/W,w/W);compose(x,Math.min(cur,frames.length-1),{vid:true,vo:1,onion:false});x.restore();return c.toDataURL('image/jpeg',.7)}catch(e){return null}},
+setProject(s){this._silent=true;try{const fr=s.frames.map(f=>({c:f.c,bg:f.bg||null}));resetProject(s.W,s.H,fr);$('#fps').value=Math.max(1,Math.min(30,s.fps||12));
+tracks=s.tracks.map(t=>({...t,clips:t.clips.map(c=>({...c,fr:fr[c.fr]})).filter(c=>c.fr)}));cnt=(s.counters&&s.counters.cnt)||tracks.length;gn=Math.max(gn,(s.counters&&s.counters.gn)||0);sts.clear();csel.clear();build();refreshAll();render();tlvObj()}finally{setTimeout(()=>{SA._silent=false},120)}},
+newProject(){this._silent=true;try{newProject()}finally{setTimeout(()=>{SA._silent=false},120)}},
+getBlocks(){return blocks},
+blockScene(b){return{W:b.W||W,H:b.H||H,...sceneOf(b.frames,b.tracks)}},
+makeBlock(meta,sc){const fr=sc.frames.map(f=>({c:f.c,bg:null}));return{id:meta.id,name:meta.name,W:meta.W||sc.W,H:meta.H||sc.H,frames:fr,tracks:sc.tracks.map(t=>({...t,clips:t.clips.map(c=>({...c,fr:fr[c.fr]})).filter(c=>c.fr)})),_rev:meta.rev||0}},
+setBlocks(list,bnMin){blocks.length=0;list.forEach(b=>blocks.push(b));bn=Math.max(bn,bnMin||0,...list.map(b=>b.id));renderBlocks()},
+addBlock(o){const b=this.makeBlock({id:++bn,name:o.name,W:o.W,H:o.H,rev:1},o.scene);blocks.push(b);renderBlocks()},
+blockCounter(){return bn}};
+const _lv=leave;leave=function(save){const ed=bm&&bm.blk,n0=blocks.length,r=_lv.apply(this,arguments);if(save){const b=ed||(blocks.length>n0?blocks[blocks.length-1]:null);if(b)b._rev=(b._rev||0)+1}return r};
+const _sn=snap;snap=function(){SA.markDirty();return _sn.apply(this,arguments)};
+const _bd=build;build=function(){const r=_bd.apply(this,arguments);SA.markDirty();return r};
+const _th2=thumb;thumb=function(){const r=_th2.apply(this,arguments);SA.markDirty();return r};
 const _r2=resetProject;resetProject=function(){adjEnd0();if(bm){lock(false);bm=null;ui()}return _r2.apply(this,arguments)};
 })();
+</script>
+
+<script id="menu-projetos">
+/* =====================================================================
+   menu-projetos.js  —  Menu inicial de projetos do "Quadro a Quadro"
+
+   O que faz
+   - Abre um menu com todos os seus projetos de animação (miniatura, nome,
+     frames, fps, última edição). Salva sozinho enquanto você anima.
+   - Abrir · Novo · Duplicar · Renomear · Favoritar (★) · Excluir
+   - Reaproveitar: "Virar bloco" transforma um projeto inteiro num bloco
+     de animação que fica disponível em TODOS os projetos.
+   - Os blocos de animação também ficam salvos entre sessões.
+   - Exportar / Importar projeto em arquivo (.json) para backup ou para
+     levar para outro computador.
+
+   Como instalar
+   - Este arquivo precisa do objeto window.StudioAPI (a "ponte" que o editor
+     expõe). A versão do editor que acompanha este arquivo já a tem.
+   - Basta carregar DEPOIS do editor, com uma tag script apontando para
+     "menu-projetos.js" no fim da página (ou colando o conteúdo deste arquivo
+     dentro de uma tag script, também no fim da página).
+
+   Armazenamento: IndexedDB do navegador (banco "quadro-a-quadro"). Os dados
+   ficam neste navegador; use "Exportar" para guardar uma cópia de segurança.
+   ===================================================================== */
+(function () {
+  'use strict';
+  const API = window.StudioAPI;
+  if (!API) { console.warn('menu-projetos.js: o editor não expôs window.StudioAPI.'); return; }
+
+  const $ = s => document.querySelector(s);
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const say = (m, ms) => { try { window.toast ? window.toast(m, ms || 4000) : console.log(m); } catch (e) { } };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  /* ------------------------- IndexedDB ------------------------- */
+  let dbp = null;
+  const db = () => dbp || (dbp = new Promise((ok, no) => {
+    const r = indexedDB.open('quadro-a-quadro', 1);
+    r.onupgradeneeded = () => ['projects', 'scenes', 'blocks'].forEach(n => r.result.createObjectStore(n, { keyPath: 'id' }));
+    r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error);
+  }));
+  const req = async (st, mode, fn) => {
+    const d = await db();
+    return new Promise((ok, no) => {
+      const t = d.transaction(st, mode); let out;
+      try { out = fn(t.objectStore(st)); } catch (e) { no(e); return; }
+      t.oncomplete = () => ok(out && out.result); t.onerror = t.onabort = () => no(t.error || new Error('IndexedDB'));
+    });
+  };
+  const put = (st, o) => req(st, 'readwrite', s => s.put(o));
+  const get = (st, id) => req(st, 'readonly', s => s.get(id));
+  const del = (st, id) => req(st, 'readwrite', s => s.delete(id));
+  const all = st => req(st, 'readonly', s => s.getAll());
+
+  /* ------------------ canvas <-> arquivos (Blob) ------------------ */
+  const toBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+  const isBlank = c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, u = new Uint32Array(d.buffer); for (let i = 0; i < u.length; i++) if (u[i] & 0xff000000) return false; return true; };
+  const urlToBlob = u => { const i = u.indexOf(','), m = u.slice(5, u.indexOf(';')), b = atob(u.slice(i + 1)), a = new Uint8Array(b.length); for (let k = 0; k < b.length; k++) a[k] = b.charCodeAt(k); return new Blob([a], { type: m }); };
+  const blobToUrl = b => new Promise(r => { const f = new FileReader(); f.onload = () => r(f.result); f.readAsDataURL(b); });
+  const bgBlob = bg => (bg instanceof HTMLImageElement && bg.src.startsWith('data:')) ? Promise.resolve(urlToBlob(bg.src)) : toBlob(bg, 'image/jpeg', .9);
+
+  /* "cena" = { W,H,fps,counters, frames:[{c,bg}], tracks:[{...,clips:[{fr:índice,c:canvas,...}]}] }
+     Os toBlob são disparados de forma síncrona: o salvamento é um retrato exato do momento. */
+  async function encodeScene(sc) {
+    const imgs = new Map(), jobs = [];
+    const idOf = c => { let id = imgs.get(c); if (!id) { id = 'i' + imgs.size; imgs.set(c, id); jobs.push(toBlob(c, 'image/png').then(b => [id, b])); } return id; };
+    const frames = sc.frames.map((f, i) => {
+      const o = {}; if (!isBlank(f.c)) o.c = idOf(f.c);
+      if (f.bg) { const id = 'b' + i; jobs.push(bgBlob(f.bg).then(b => [id, b])); o.bg = id; }
+      return o;
+    });
+    const tracks = sc.tracks.map(t => ({ ...t, clips: t.clips.map(c => ({ ...c, c: idOf(c.c) })) }));
+    const images = Object.fromEntries(await Promise.all(jobs));
+    return { W: sc.W, H: sc.H, fps: sc.fps, counters: sc.counters || {}, frames, tracks, images };
+  }
+  async function decodeScene(d) {
+    const cache = new Map();
+    const cv = async (id, w, h) => {
+      if (cache.has(id)) return cache.get(id);
+      const bm = await createImageBitmap(d.images[id]), c = mk(w || bm.width, h || bm.height);
+      c.getContext('2d').drawImage(bm, 0, 0); if (bm.close) bm.close(); cache.set(id, c); return c;
+    };
+    const bgImg = async id => { const im = new Image(); im.src = await blobToUrl(d.images[id]); await im.decode().catch(() => { }); return im; };
+    const frames = [];
+    for (const f of d.frames) frames.push({ c: f.c ? await cv(f.c, d.W, d.H) : mk(d.W, d.H), bg: f.bg ? await bgImg(f.bg) : null });
+    const tracks = [];
+    for (const t of d.tracks) { const clips = []; for (const c of t.clips) clips.push({ ...c, c: await cv(c.c) }); tracks.push({ ...t, clips }); }
+    return { W: d.W, H: d.H, fps: d.fps, counters: d.counters, frames, tracks };
+  }
+
+  /* ----------------- projeto atual e salvamento ----------------- */
+  let curId = null, curMeta = null, timer = null, chain = Promise.resolve();
+  const status = t => { const s = $('#mpStat'); if (s) s.textContent = t; };
+  const hhmm = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  function saveNow() {
+    clearTimeout(timer); timer = null;
+    const sc = API.getScene(); if (!sc) return chain;
+    if (!curId) { curId = uid(); curMeta = { id: curId, name: 'Projeto sem título', fav: 0, created: Date.now() }; }
+    const meta = curMeta, thumb = API.thumb(), enc = encodeScene(sc), n = sc.frames.length;
+    chain = chain.then(async () => {
+      try {
+        const e = await enc;
+        await put('scenes', { id: meta.id, ...e });
+        Object.assign(meta, { modified: Date.now(), W: sc.W, H: sc.H, fps: sc.fps, n, thumb });
+        await put('projects', { ...meta });
+        status('Salvo às ' + hhmm());
+      } catch (err) { status('Erro ao salvar'); console.error(err); }
+    });
+    return chain;
+  }
+  API.onDirty(() => {
+    if (!API.hasProject() || API.inBlock()) return;
+    status('Salvando…'); clearTimeout(timer); timer = setTimeout(saveNow, 1500);
+  });
+  addEventListener('beforeunload', () => { if (timer) saveNow(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && timer) saveNow(); });
+
+  /* --------------------------- blocos --------------------------- */
+  const savedSig = new Map();
+  async function syncBlocks() {
+    const bl = API.getBlocks(), jobs = [], ids = new Set();
+    for (const b of bl) {
+      ids.add(b.id); const sig = b.name + '|' + (b._rev || 0);
+      if (savedSig.get(b.id) === sig) continue; savedSig.set(b.id, sig);
+      const enc = encodeScene({ ...API.blockScene(b), fps: 12, counters: {} });
+      jobs.push(enc.then(e => put('blocks', { id: b.id, name: b.name, rev: b._rev || 0, W: b.W, H: b.H, scene: e })));
+    }
+    for (const id of [...savedSig.keys()]) if (!ids.has(id)) { savedSig.delete(id); jobs.push(del('blocks', id)); }
+    try { await Promise.all(jobs); localStorage.setItem('qaq-bn', String(API.blockCounter())); } catch (e) { console.error(e); }
+  }
+  setInterval(syncBlocks, 3000);
+  async function loadBlocks() {
+    const list = [];
+    for (const r of await all('blocks')) {
+      try { list.push(API.makeBlock({ id: r.id, name: r.name, W: r.W, H: r.H, rev: r.rev }, await decodeScene(r.scene))); savedSig.set(r.id, r.name + '|' + (r.rev || 0)); }
+      catch (e) { console.error('bloco ignorado', r.id, e); }
+    }
+    API.setBlocks(list, +(localStorage.getItem('qaq-bn') || 0));
+  }
+
+  /* ----------------------- operações do menu ----------------------- */
+  const nextName = async () => 'Projeto ' + ((await all('projects')).length + 1);
+  async function createProject(name) {
+    busy('Criando projeto…');
+    try { await saveNow(); API.newProject(); curId = uid(); curMeta = { id: curId, name: name || await nextName(), fav: 0, created: Date.now() }; await saveNow(); closeMenu(); }
+    finally { busy(); }
+  }
+  async function openProject(id) {
+    busy('Abrindo projeto…');
+    try {
+      await saveNow();
+      const [m, s] = await Promise.all([get('projects', id), get('scenes', id)]);
+      if (!m || !s) throw new Error('projeto não encontrado');
+      API.setProject(await decodeScene(s)); curId = id; curMeta = m; closeMenu(); say('Projeto "' + m.name + '" aberto.');
+    } catch (e) { alert('Não consegui abrir o projeto: ' + e.message); } finally { busy(); }
+  }
+  async function duplicate(id) {
+    await saveNow(); const [m, s] = await Promise.all([get('projects', id), get('scenes', id)]); if (!m || !s) return;
+    const nid = uid(); await put('scenes', { ...s, id: nid }); await put('projects', { ...m, id: nid, name: m.name + ' (cópia)', fav: 0, created: Date.now(), modified: Date.now() });
+    say('Projeto duplicado.'); render();
+  }
+  async function rename(id) {
+    const m = id === curId ? curMeta : await get('projects', id); if (!m) return;
+    const v = prompt('Nome do projeto:', m.name); if (!v || !v.trim()) return;
+    m.name = v.trim(); await put('projects', { ...m }); render();
+  }
+  async function toggleFav(id) { const m = await get('projects', id); if (!m) return; m.fav = m.fav ? 0 : 1; if (id === curId && curMeta) curMeta.fav = m.fav; await put('projects', m); render(); }
+  async function remove(id) {
+    const m = await get('projects', id); if (!m || !confirm('Excluir o projeto "' + m.name + '"? Isso não pode ser desfeito.')) return;
+    await del('projects', id); await del('scenes', id);
+    if (id === curId) { curId = null; curMeta = null; API.newProject(); }
+    render();
+  }
+  async function asBlock(id) {
+    busy('Criando bloco…');
+    try {
+      await saveNow(); const [m, s] = await Promise.all([get('projects', id), get('scenes', id)]); if (!m || !s) return;
+      const sc = await decodeScene(s); sc.frames.forEach(f => f.bg = null);
+      API.addBlock({ name: m.name, W: sc.W, H: sc.H, scene: sc });
+      say('"' + m.name + '" agora é um bloco de animação, disponível em todos os projetos (painel Blocos de animação).', 6000);
+    } catch (e) { alert('Não consegui criar o bloco: ' + e.message); } finally { busy(); }
+  }
+  async function exportProject(id) {
+    busy('Exportando…');
+    try {
+      await saveNow(); const [m, s] = await Promise.all([get('projects', id), get('scenes', id)]); if (!m || !s) return;
+      const images = {}; for (const k of Object.keys(s.images)) images[k] = await blobToUrl(s.images[k]);
+      const data = JSON.stringify({ format: 'quadro-a-quadro/1', meta: { name: m.name, fps: m.fps }, scene: { ...s, id: undefined, images } });
+      const file = new Blob([data], { type: 'application/json' }), name = m.name.replace(/[^\w\- ]+/g, '').trim() + '.quadro.json';
+      if (typeof window.save === 'function') await window.save(name, file);
+      else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); }
+    } catch (e) { alert('Não consegui exportar: ' + e.message); } finally { busy(); }
+  }
+  async function importFile(file) {
+    busy('Importando…');
+    try {
+      const j = JSON.parse(await file.text()); if (!j || j.format !== 'quadro-a-quadro/1') throw new Error('não é um arquivo de projeto deste programa');
+      const images = {}; for (const k of Object.keys(j.scene.images)) images[k] = urlToBlob(j.scene.images[k]);
+      const nid = uid(), sc = { ...j.scene, id: nid, images };
+      const tmp = await decodeScene(sc); const thumb = thumbOf(tmp);
+      await put('scenes', sc);
+      await put('projects', { id: nid, name: (j.meta && j.meta.name || 'Projeto importado'), fav: 0, created: Date.now(), modified: Date.now(), W: sc.W, H: sc.H, fps: sc.fps, n: sc.frames.length, thumb });
+      say('Projeto importado.'); render();
+    } catch (e) { alert('Não consegui importar: ' + e.message); } finally { busy(); }
+  }
+  function thumbOf(sc) {
+    const w = 256, h = Math.max(1, Math.round(w * sc.H / sc.W)), c = mk(w, h), x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h);
+    const f = sc.frames[Math.floor(sc.frames.length / 2)] || sc.frames[0]; if (!f) return null;
+    if (f.bg) x.drawImage(f.bg, 0, 0, w, h); x.drawImage(f.c, 0, 0, w, h);
+    sc.tracks.forEach(t => t.clips.forEach(k => { if (sc.frames[k.fr] === f) { x.save(); x.scale(w / sc.W, w / sc.W); x.translate(k.cx, k.cy); x.rotate(k.r); x.scale(k.s, k.s); x.drawImage(k.c, -k.w / 2, -k.h / 2); x.restore(); } }));
+    return c.toDataURL('image/jpeg', .7);
+  }
+
+  /* ----------------------------- interface ----------------------------- */
+  document.head.append(Object.assign(document.createElement('style'), {
+    textContent: `
+#mpMenu{position:fixed;inset:0;z-index:60;background:var(--bg,#12141a);color:var(--tx,#e8e8ee);overflow:auto;display:none}
+#mpMenu.on{display:block}
+#mpMenu .mpw{max-width:1100px;margin:0 auto;padding:26px 22px 60px}
+#mpMenu h1{font-size:24px;margin:0 0 4px} #mpMenu .sub{color:var(--mu,#9aa);font-size:13px;margin-bottom:16px}
+#mpMenu .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+#mpMenu .bar input[type=search]{flex:1;min-width:160px;background:var(--pn2,#1b1e27);border:1px solid var(--ln,#2c3040);border-radius:8px;padding:7px 10px;color:inherit}
+#mpGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.mpc{background:var(--pn,#1a1d26);border:1px solid var(--ln,#2c3040);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.mpc.cur{border-color:var(--ac,#7c5cff);box-shadow:0 0 0 1px var(--ac,#7c5cff)}
+.mpc .th{aspect-ratio:16/9;background:#fff;cursor:pointer;display:block;width:100%;object-fit:contain}
+.mpc .nm{font-weight:600;padding:8px 10px 0;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mpc .in{padding:2px 10px 8px;color:var(--mu,#9aa);font-size:12px}
+.mpc .ac{display:flex;flex-wrap:wrap;gap:4px;padding:0 8px 10px}
+.mpc .ac button{font-size:11px;padding:3px 7px}
+.mpc .st{margin-left:auto;font-size:15px;background:none;border:none;cursor:pointer;color:#f5b301}
+#mpEmpty{grid-column:1/-1;text-align:center;color:var(--mu,#9aa);padding:50px 10px}
+#mpBusy{position:fixed;inset:0;z-index:70;background:#000a;display:none;place-items:center;color:#fff;font-size:15px}
+#mpStat{font-size:12px;color:var(--mu,#9aa);margin-left:6px;white-space:nowrap}`
+  }));
+  const menu = document.createElement('div'); menu.id = 'mpMenu';
+  menu.innerHTML = `<div class="mpw"><h1>Meus projetos</h1><div class="sub">Tudo que você anima é salvo automaticamente neste navegador. Abra um projeto para continuar, duplique para testar variações ou transforme um projeto que deu certo em bloco para reutilizar nos outros.</div>
+<div class="bar"><button class="pri" id="mpNew">+ Novo projeto</button><button id="mpImp">Importar arquivo…</button><input id="mpFile" type="file" accept=".json,application/json" hidden>
+<input id="mpQ" type="search" placeholder="Buscar projeto…" aria-label="Buscar projeto"><select id="mpSort" aria-label="Ordenar"><option value="rec">Mais recentes</option><option value="nome">Nome (A–Z)</option></select><button id="mpClose">Voltar ao editor</button></div>
+<div id="mpGrid"></div><div class="sub" id="mpInfo" style="margin-top:18px"></div></div>`;
+  document.body.append(menu);
+  const bz = document.createElement('div'); bz.id = 'mpBusy'; document.body.append(bz);
+  const busy = t => { bz.style.display = t ? 'grid' : 'none'; bz.textContent = t || ''; };
+
+  const ago = t => { const s = (Date.now() - t) / 1000; if (s < 60) return 'agora há pouco'; if (s < 3600) return 'há ' + Math.round(s / 60) + ' min'; if (s < 86400) return 'há ' + Math.round(s / 3600) + ' h'; return new Date(t).toLocaleDateString('pt-BR'); };
+  async function render() {
+    if (curId && timer) await saveNow();
+    let list = await all('projects'); const q = ($('#mpQ').value || '').toLowerCase().trim();
+    if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
+    const byName = $('#mpSort').value === 'nome';
+    list.sort((a, b) => (b.fav || 0) - (a.fav || 0) || (byName ? a.name.localeCompare(b.name, 'pt-BR') : (b.modified || 0) - (a.modified || 0)));
+    $('#mpGrid').innerHTML = list.length ? list.map(p => `<div class="mpc${p.id === curId ? ' cur' : ''}" data-id="${p.id}">
+<img class="th" data-a="open" alt="" ${p.thumb ? `src="${p.thumb}"` : ''}><div class="nm" data-a="open" title="${esc(p.name)}">${esc(p.name)}</div>
+<div class="in">${p.n || 0} frames · ${p.fps || 12} fps · ${ago(p.modified || p.created)}${p.id === curId ? ' · aberto' : ''}</div>
+<div class="ac"><button data-a="open" class="pri">Abrir</button><button data-a="dup">Duplicar</button><button data-a="ren">Renomear</button><button data-a="blk" title="Vira um bloco de animação disponível em todos os projetos">Virar bloco</button><button data-a="exp">Exportar</button><button data-a="del">Excluir</button><button class="st" data-a="fav" title="Favorito">${p.fav ? '★' : '☆'}</button></div></div>`).join('')
+      : `<div id="mpEmpty">${q ? 'Nenhum projeto com esse nome.' : 'Nenhum projeto ainda.<br>Clique em <b>+ Novo projeto</b> para começar.'}</div>`;
+    $('#mpInfo').textContent = API.getBlocks().length + ' bloco(s) de animação salvo(s) — disponíveis em todos os projetos.';
+    $('#mpClose').style.display = API.hasProject() ? '' : 'none';
+  }
+  const openMenu = () => { menu.classList.add('on'); render(); };
+  function closeMenu() { menu.classList.remove('on'); }
+  $('#mpGrid').addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if (!b) return; const id = b.closest('.mpc').dataset.id, a = b.dataset.a;
+    ({ open: openProject, dup: duplicate, ren: rename, blk: asBlock, exp: exportProject, del: remove, fav: toggleFav })[a](id);
+  });
+  $('#mpNew').onclick = () => createProject();
+  $('#mpClose').onclick = closeMenu;
+  $('#mpImp').onclick = () => $('#mpFile').click();
+  $('#mpFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); };
+  $('#mpQ').oninput = render; $('#mpSort').onchange = render;
+  addEventListener('keydown', e => { if (e.key === 'Escape' && menu.classList.contains('on') && API.hasProject()) closeMenu(); });
+
+  /* botão no cabeçalho + atalhos do editor que apagariam o projeto aberto */
+  const hb = document.createElement('button'); hb.id = 'bProj'; hb.textContent = '☰ Projetos'; hb.title = 'Abrir o menu de projetos';
+  const st = document.createElement('span'); st.id = 'mpStat';
+  const h1 = $('header h1'); if (h1) h1.after(hb, st); else document.body.prepend(hb);
+  hb.onclick = async () => { await saveNow(); openMenu(); };
+  const bNew = $('#bNew'); if (bNew) { bNew.textContent = 'Novo projeto'; bNew.onclick = () => createProject(); }
+  const bVid = $('#bVid');
+  if (bVid) bVid.addEventListener('click', e => {
+    const has = !API.inBlock() && API.hasProject() && (API.getScene().frames.length > 1 || API.hasContent());
+    if (has && confirm('O projeto atual já tem conteúdo.\n\nOK = importar o vídeo num NOVO projeto (o atual fica salvo)\nCancelar = substituir o projeto atual')) {
+      e.stopImmediatePropagation(); const fv = $('#fVid');
+      saveNow(); API.newProject(); curId = uid(); curMeta = { id: curId, name: 'Vídeo importado', fav: 0, created: Date.now() }; saveNow();
+      fv.click();
+    }
+  }, true);
+  const fps = $('#fps'); if (fps) fps.addEventListener('change', () => API.markDirty());
+
+  /* ------------------------------ início ------------------------------ */
+  (async () => {
+    try { await loadBlocks(); } catch (e) { console.error(e); }
+    openMenu();
+  })();
+
+  window.MenuProjetos = { abrir: openMenu, salvar: saveNow, criar: createProject };
+})();
+
 </script>
 
 </body>
